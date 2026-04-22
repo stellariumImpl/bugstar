@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.pytest_cache/
+.coverage*
+.tox/
+.mypy_cache/
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment variables (secrets)
+.env
+.env.local
+.env.*.local
+
+# Dependency managers
+uv.lock
+poetry.lock
+Pipfile.lock
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+notebooks/
+
+# Jupyter Lab
+.jupyter-lab/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local development
+*.log
+*.sqlite
+*.db
