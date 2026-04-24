@@ -1,7 +1,7 @@
 [project]
 name = "bugstar"
 version = "0.1.0"
-description = "Add your description here"
+description = "macOS 上的轻量工程助手 Agent"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,4 +11,30 @@ dependencies = [
     "langchain-experimental>=0.4.1",
     "langchain-openai>=1.1.16",
     "mem0ai[nlp]>=2.0.0",
+    "python-dotenv>=1.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["bugstar"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]  # long lines — we use 110 but docstrings can exceed
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
