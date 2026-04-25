@@ -187,6 +187,7 @@ async def run_bugstar(user_input: str, session_id: str, user_id: str = USER_ID):
         workspace=sandbox.workspace,
         memory_context=memory_context,
         on_tool_call=_on_tool_call,
+        sandbox=sandbox,
     )
 
     # E. 打印最终回复 + 处理异常/超迭代.

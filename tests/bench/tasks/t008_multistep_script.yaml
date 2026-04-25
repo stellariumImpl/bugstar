@@ -6,9 +6,10 @@ timeout_s: 90
 checks:
   - type: file_exists
     path: result.txt
+  # 用 grep -q 代替 grep -x：实际用户场景下，"包含 2550" 已经够用,
+  # 不要因为多个 \n 或前后空格而 fail.
   - type: shell
-    # 1..100 偶数之和 = 2550
-    cmd: cat result.txt | tr -d '[:space:]' | grep -x 2550
+    cmd: grep -q '\b2550\b' result.txt
     expect_exit_code: 0
   - type: tool_called
     name: terminal

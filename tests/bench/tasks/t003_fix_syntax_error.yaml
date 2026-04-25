@@ -7,10 +7,9 @@ fixtures:
   - from: broken.py
     to: broken.py
 checks:
+  # 只关心最终结果是否对. 不强制 agent 用几次工具——
+  # 它如果一次性就能猜对修法，那是更好.
   - type: shell
     cmd: python3 broken.py
     expect_exit_code: 0
     expect_stdout_contains: "ok"
-  - type: tool_called
-    name: terminal
-    min_times: 2   # 至少要"读一次 + 跑一次"

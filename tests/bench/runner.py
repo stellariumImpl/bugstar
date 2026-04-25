@@ -111,6 +111,7 @@ async def run_task(
                 tools_by_name=tools_by_name,
                 workspace=sandbox.workspace,
                 memory_context="（bench 模式，无长期记忆）",
+                sandbox=sandbox,
             ),
             timeout=task_timeout,
         )
