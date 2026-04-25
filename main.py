@@ -15,7 +15,7 @@ from bugstar.tools import make_terminal_tool
 
 load_dotenv()
 
-# 日志: 让 sandbox 的 info 能打出来，方便观察 agent 在干啥.
+# 日志: 默认保留 warning+，避免内部执行细节刷屏到交互界面。
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -25,6 +25,10 @@ logging.basicConfig(
 # 实际信息量接近零，还会插进 input() 提示符后面导致错觉"用户说了日志".
 for noisy in ("httpx", "httpcore", "openai"):
     logging.getLogger(noisy).setLevel(logging.WARNING)
+
+# sandbox 的命令级日志对开发排查有帮助，但日常交互里基本是噪声，
+# 尤其像内部快照脚本这类实现细节不应直接打到用户界面。
+logging.getLogger("bugstar.sandbox.local").setLevel(logging.WARNING)
 
 # --- 固定配置 ---
 USER_ID = "felix"

@@ -163,11 +163,17 @@ class Executor:
                 # --- 自然结束 -------------------------------------------
                 if not res.tool_calls:
                     final_reply = (res.content or "").strip()
-                    # 收尾时强制 list 工作区, 给一个"产物落地"的事实快照.
+                    # 收尾时抓取工作区快照, 给一个"产物落地"的事实快照.
                     if self.verify_artifacts:
                         artifacts = await self._snapshot_artifacts()
                     else:
                         artifacts = ""
+                    final_reply = await self._ground_final_reply(
+                        messages=messages,
+                        draft_reply=final_reply,
+                        tool_records=tool_records,
+                        artifacts=artifacts,
+                    )
                     return self._finish(
                         start=start,
                         messages=messages,
@@ -312,12 +318,139 @@ class Executor:
         return int(usage.get("total_tokens", 0) or 0)
 
     async def _snapshot_artifacts(self) -> str:
-        """收尾时 list 工作区. 给 trace / debug 一个事实参考."""
+        """收尾时抓一份通用产物快照.
+
+        不依赖具体 case：
+        - 列出工作区文件
+        - 预览小型文本文件内容
+        这样最终回复可以尽量引用"已观察到的事实".
+        """
         try:
-            r = await self.sandbox.exec("ls -la", timeout_s=5.0)
+            cmd = """python3 - <<'PY'
+from __future__ import annotations
+
+from pathlib import Path
+
+root = Path(".")
+files = []
+for p in sorted(root.rglob("*")):
+    if not p.is_file():
+        continue
+    rel = p.relative_to(root)
+    if len(rel.parts) > 2:
+        continue
+    files.append(p)
+
+print("[workspace_files]")
+if not files:
+    print("(none)")
+else:
+    for p in files[:20]:
+        try:
+            size = p.stat().st_size
+        except OSError:
+            continue
+        print(f"- {p.as_posix()} ({size} bytes)")
+
+print("\\n[file_previews]")
+preview_count = 0
+for p in files:
+    if preview_count >= 8:
+        break
+    try:
+        size = p.stat().st_size
+    except OSError:
+        continue
+    if size > 4096:
+        continue
+    try:
+        text = p.read_text(encoding="utf-8")
+    except Exception:
+        continue
+    preview_count += 1
+    print(f"=== {p.as_posix()} ===")
+    lines = text.splitlines()
+    if not lines:
+        print("(empty)")
+        continue
+    for line in lines[:5]:
+        print(line[:200])
+if preview_count == 0:
+    print("(no small utf-8 text files)")
+PY"""
+            r = await self.sandbox.exec(cmd, timeout_s=5.0)
             return r.stdout or ""
         except Exception:  # noqa: BLE001
             return ""
+
+    async def _ground_final_reply(
+        self,
+        *,
+        messages: list[Any],
+        draft_reply: str,
+        tool_records: list[ToolCallRecord],
+        artifacts: str,
+    ) -> str:
+        """在有真实证据时追加一轮 grounded finalization.
+
+        目标是通用约束"最终回复必须基于观察"，而不是为某个 bench case 特判.
+        """
+        evidence = self._build_evidence_summary(tool_records=tool_records, artifacts=artifacts)
+        if not evidence:
+            return draft_reply
+
+        if self.budget.check() is not None:
+            return draft_reply
+
+        grounding_prompt = (
+            "你现在只负责生成最终回复，不要调用工具。\n\n"
+            "请严格基于下面的 VERIFIED OBSERVATIONS 回答：\n"
+            "- 任何具体数字、计数、文件状态、程序输出都必须直接来自这些观察。\n"
+            "- 不要改写数字，不要额外心算，不要把观察值再减一/加一。\n"
+            "- 如果证据不足，就明确说明你观察到了什么，不要补充推断。\n"
+            "- 可以润色语气，但事实必须与观察完全一致。\n\n"
+            f"[DRAFT_REPLY]\n{draft_reply or '(empty)'}\n\n"
+            f"[VERIFIED_OBSERVATIONS]\n{evidence}"
+        )
+
+        try:
+            res = await self.llm.ainvoke(messages + [HumanMessage(content=grounding_prompt)])
+            tokens = self._estimate_tokens(res)
+            self.budget.record_llm_call(tokens=tokens)
+            if getattr(res, "tool_calls", None):
+                return draft_reply
+            grounded = (res.content or "").strip()
+            return grounded or draft_reply
+        except Exception:  # noqa: BLE001
+            return draft_reply
+
+    @staticmethod
+    def _build_evidence_summary(*, tool_records: list[ToolCallRecord], artifacts: str) -> str:
+        parts: list[str] = []
+
+        successful = [r for r in tool_records if r.success and not r.deferred]
+        if successful:
+            parts.append("[successful_tool_observations]")
+            for rec in successful[-5:]:
+                parts.append(f"- tool={rec.name} args={rec.args}")
+                clipped = rec.result.strip()
+                if len(clipped) > 700:
+                    clipped = clipped[:700] + "\n...[truncated]..."
+                parts.append(clipped or "(empty result)")
+
+        artifacts = artifacts.strip()
+        has_real_artifacts = (
+            artifacts
+            and "[workspace_files]" in artifacts
+            and "(none)" not in artifacts.split("[file_previews]", 1)[0]
+        )
+        if has_real_artifacts:
+            if len(artifacts) > 1500:
+                artifacts = artifacts[:1500] + "\n...[truncated]..."
+            parts.append("[artifact_snapshot]")
+            parts.append(artifacts)
+
+        return "\n".join(parts).strip()
 
     def _finish(
         self,

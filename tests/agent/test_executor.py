@@ -101,8 +101,8 @@ async def test_natural_finish_records_artifacts(sb: LocalSandbox) -> None:
     assert result.ok
     assert result.final_reply == "done"
     assert result.stopped_reason == "ok"
-    # 产物快照应该被记录（即便是空目录, 至少有 . 和 ..）
-    assert "total" in result.artifacts_listing or "." in result.artifacts_listing
+    # 产物快照应该被记录（即便空目录，也应该有统一的快照结构）
+    assert "[workspace_files]" in result.artifacts_listing
 
 
 # --- 2. 强制串行（多 tool_call 只执行第一个）---------------------------------
@@ -117,6 +117,7 @@ async def test_serial_enforcement_only_first_tool_runs(sb: LocalSandbox) -> None
             _tc("c2", args={"command": "echo second"}),
         ]),
         _ai(content="finished"),
+        _ai(content="grounded finished"),
     ])
     tool = FakeTerminalTool(["exit_code=0 duration=0.01s\n--- stdout ---\nfirst"])
     ex = Executor(llm=llm, tools_by_name={"terminal": tool}, sandbox=sb)
@@ -132,6 +133,7 @@ async def test_serial_enforcement_only_first_tool_runs(sb: LocalSandbox) -> None
     assert len(executed) == 1
     assert len(deferred) == 1
     assert result.deferred_tool_calls == 1
+    assert result.final_reply == "grounded finished"
 
 
 # --- 3. 失败计数（连续失败超限触发停止）-------------------------------------
@@ -168,6 +170,7 @@ async def test_success_resets_consecutive_failures(sb: LocalSandbox) -> None:
         _ai(tool_calls=[_tc("c2", args={"command": "true"})]),
         _ai(tool_calls=[_tc("c3", args={"command": "false"})]),
         _ai(content="finished"),
+        _ai(content="grounded finished"),
     ])
     tool = FakeTerminalTool([
         "exit_code=1 duration=0.00s",
@@ -180,6 +183,7 @@ async def test_success_resets_consecutive_failures(sb: LocalSandbox) -> None:
     result = await ex.run("mixed")
 
     assert result.ok, f"expected ok, got {result.stopped_reason}"
+    assert result.final_reply == "grounded finished"
     # 最后一次失败后再成功收尾, 连续失败计数应该是 1（最后那个 false）
     assert budget.consecutive_failures == 1
 
@@ -236,6 +240,7 @@ async def test_unknown_tool_recorded_as_failure(sb: LocalSandbox) -> None:
     assert len(result.tool_calls) == 1
     assert not result.tool_calls[0].success
     assert "未找到工具" in result.tool_calls[0].result
+    assert result.final_reply == "ok"
 
 
 # --- 6. budget snapshot 进入结果 --------------------------------------------
@@ -252,3 +257,32 @@ async def test_budget_snapshot_in_result(sb: LocalSandbox) -> None:
     assert snap["tool_calls"] == 0
     assert "wall_time_s" in snap
     assert json.dumps(snap)  # 可序列化, 给 trace 用
+
+
+async def test_grounding_prompt_uses_verified_observations(sb: LocalSandbox) -> None:
+    llm = FakeLLM([
+        _ai(tool_calls=[_tc("c1", args={"command": "echo 5"})]),
+        _ai(content="结果是 4"),
+        _ai(content="结果是 5"),
+    ])
+    tool = FakeTerminalTool(["exit_code=0 duration=0.00s\n--- stdout ---\n5"])
+    ex = Executor(llm=llm, tools_by_name={"terminal": tool}, sandbox=sb)
+
+    result = await ex.run("count")
+
+    assert result.final_reply == "结果是 5"
+    assert len(llm.invocations) == 3
+    grounding_messages = llm.invocations[-1]
+    assert "VERIFIED_OBSERVATIONS" in grounding_messages[-1].content
+    assert "exit_code=0" in grounding_messages[-1].content
+    assert "5" in grounding_messages[-1].content
+
+
+async def test_no_grounding_without_tools_or_artifacts(sb: LocalSandbox) -> None:
+    llm = FakeLLM([_ai(content="直接回答")])
+    ex = Executor(llm=llm, tools_by_name={"terminal": FakeTerminalTool([])}, sandbox=sb)
+
+    result = await ex.run("纯知识问答")
+
+    assert result.final_reply == "直接回答"
+    assert len(llm.invocations) == 1
