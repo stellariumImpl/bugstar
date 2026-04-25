@@ -1,0 +1,15 @@
+id: t008_multistep_script
+description: 多步任务 —— 写脚本 + 运行 + 把结果存进文件
+prompt: |
+  计算 1 到 100 的所有偶数之和，把结果写入 result.txt (只写数字，不加其他文字).
+timeout_s: 90
+checks:
+  - type: file_exists
+    path: result.txt
+  - type: shell
+    # 1..100 偶数之和 = 2550
+    cmd: cat result.txt | tr -d '[:space:]' | grep -x 2550
+    expect_exit_code: 0
+  - type: tool_called
+    name: terminal
+    min_times: 1

@@ -1,0 +1,132 @@
+{
+  "task": {
+    "id": "t001_hello_world",
+    "description": "最基本：写一个 Python 脚本并运行",
+    "prompt": "在当前目录写一个 hello.py，内容是打印 \"Hello, BugStar!\"，然后运行它把输出告诉我.\n",
+    "timeout_s": 60,
+    "checks": [
+      {
+        "type": "file_exists",
+        "path": "hello.py"
+      },
+      {
+        "type": "file_contains",
+        "path": "hello.py",
+        "contains": "Hello, BugStar!"
+      },
+      {
+        "type": "shell",
+        "cmd": "python3 hello.py",
+        "expect_exit_code": 0,
+        "expect_stdout_contains": "Hello, BugStar!"
+      },
+      {
+        "type": "tool_called",
+        "name": "terminal",
+        "min_times": 1
+      },
+      {
+        "type": "reply_contains",
+        "needle": "Hello, BugStar!"
+      }
+    ]
+  },
+  "agent": {
+    "final_reply": "我已经创建并运行了 `hello.py`，输出是：\n\n```\nHello, BugStar!\n```",
+    "total_duration_s": 3.9117326250416227,
+    "stopped_reason": "ok",
+    "error": null,
+    "tool_calls": [
+      {
+        "name": "terminal",
+        "args": {
+          "command": "echo 'print(\"Hello, BugStar!\")' > hello.py"
+        },
+        "result": "exit_code=0 duration=0.01s",
+        "duration_s": 0.009389541985001415,
+        "call_id": "call_qWpH5LjVn3u9sDV8ZiBrl7CV"
+      },
+      {
+        "name": "terminal",
+        "args": {
+          "command": "python3 hello.py"
+        },
+        "result": "exit_code=0 duration=0.02s\n--- stdout ---\nHello, BugStar!",
+        "duration_s": 0.018368125020060688,
+        "call_id": "call_d33ULS9vgmTYngYKtGGzuHlP"
+      }
+    ],
+    "messages": [
+      {
+        "type": "SystemMessage",
+        "content": "你是 BugStar，一个运行在 macOS 上的专业工程助手。\n\n你可以根据需要使用 terminal 执行命令。\n\n【执行环境】\n- 所有 terminal 命令都在隔离的工作目录内运行: /Users/felix/.bugstar/workspaces/sb-fc0eb1ba\n- 工作目录之外的文件无法读写，请使用相对路径或指定此目录下的绝对路径\n- 单条命令超时 60 秒\n\n【已知上下文（长期记忆）】:\n（bench 模式，无长期记忆）\n"
+      },
+      {
+        "type": "HumanMessage",
+        "content": "在当前目录写一个 hello.py，内容是打印 \"Hello, BugStar!\"，然后运行它把输出告诉我.\n"
+      },
+      {
+        "type": "AIMessage",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_qWpH5LjVn3u9sDV8ZiBrl7CV",
+            "name": "terminal",
+            "args": {
+              "command": "echo 'print(\"Hello, BugStar!\")' > hello.py"
+            }
+          },
+          {
+            "id": "call_d33ULS9vgmTYngYKtGGzuHlP",
+            "name": "terminal",
+            "args": {
+              "command": "python3 hello.py"
+            }
+          }
+        ]
+      },
+      {
+        "type": "ToolMessage",
+        "content": "exit_code=0 duration=0.01s",
+        "tool_call_id": "call_qWpH5LjVn3u9sDV8ZiBrl7CV"
+      },
+      {
+        "type": "ToolMessage",
+        "content": "exit_code=0 duration=0.02s\n--- stdout ---\nHello, BugStar!",
+        "tool_call_id": "call_d33ULS9vgmTYngYKtGGzuHlP"
+      },
+      {
+        "type": "AIMessage",
+        "content": "我已经创建并运行了 `hello.py`，输出是：\n\n```\nHello, BugStar!\n```"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "passed": true,
+      "detail": "hello.py exists",
+      "check_type": "file_exists"
+    },
+    {
+      "passed": true,
+      "detail": "hello.py contains 'Hello, BugStar!'",
+      "check_type": "file_contains"
+    },
+    {
+      "passed": true,
+      "detail": "shell ok: python3 hello.py",
+      "check_type": "shell"
+    },
+    {
+      "passed": true,
+      "detail": "terminal called 2 times",
+      "check_type": "tool_called"
+    },
+    {
+      "passed": true,
+      "detail": "reply contains all of ['Hello, BugStar!']",
+      "check_type": "reply_contains"
+    }
+  ],
+  "passed": true
+}

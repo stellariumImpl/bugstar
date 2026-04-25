@@ -5,10 +5,11 @@ import shutil
 import uuid
 
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
+from bugstar import run_agent_once
+from bugstar.agent_core import ToolCallRecord
 from bugstar.sandbox import LocalSandbox
 from bugstar.tools import make_terminal_tool
 
@@ -163,74 +164,52 @@ async def run_bugstar(user_input: str, session_id: str, user_id: str = USER_ID):
         memory_context = "（长期记忆已禁用）"
 
     assert sandbox is not None
-    messages = [
-        SystemMessage(content=f"""你是 BugStar，一个运行在 macOS 上的专业工程助手。
 
-你可以根据需要使用 terminal 执行命令。
+    # B. 组装工具字典. manage_memories 只有开了 mem0 才放.
+    tools_by_name: dict = {"terminal": terminal_tool}
+    if MEMORY_ENABLED:
+        tools_by_name["manage_memories"] = manage_memories
 
-【执行环境】
-- 所有 terminal 命令都在隔离的工作目录内运行: {sandbox.workspace}
-- 工作目录之外的文件无法读写，请使用相对路径或指定此目录下的绝对路径
-- 单条命令超时 60 秒
-
-【已知上下文（长期记忆）】:
-{memory_context}
-"""),
-        HumanMessage(content=user_input)
-    ]
-
+    # C. 实时打印每次 tool_call（CLI 体验）.
     skip_memory_write = False
-    available_tools = {
-        "terminal": terminal_tool,
-        "manage_memories": manage_memories,
-    }
 
-    while True:
-        res = await llm.ainvoke(messages)
-        if "(User) >" in res.content:
-            res.content = res.content.split("(User) >")[0].strip()
-        messages.append(res)
+    def _on_tool_call(rec: ToolCallRecord) -> None:
+        nonlocal skip_memory_write
+        print(f"[*] 调用工具 [{rec.name}]: {rec.args}")
+        if rec.name == "manage_memories" and rec.args.get("action") == "reset":
+            skip_memory_write = True
 
-        if res.tool_calls:
-            for tc in res.tool_calls:
-                if tc["name"] == "manage_memories" and tc["args"].get("action") == "reset":
-                    skip_memory_write = True
+    # D. 跑 agent.
+    result = await run_agent_once(
+        user_input=user_input,
+        llm=llm,
+        tools_by_name=tools_by_name,
+        workspace=sandbox.workspace,
+        memory_context=memory_context,
+        on_tool_call=_on_tool_call,
+    )
 
-        if not res.tool_calls:
-            if res.content.strip():
-                print(f"\n[BugStar]: {res.content}")
+    # E. 打印最终回复 + 处理异常/超迭代.
+    if result.stopped_reason == "exception":
+        print(f"[!] 本轮 agent 执行异常: {result.error}")
+        return
+    if result.stopped_reason == "max_iterations":
+        print("[!] 本轮 agent 达到迭代上限，已停止.")
 
-                # 只在开启记忆、未触发 reset、回复非空时才写回
-                if MEMORY_ENABLED and memo is not None and not skip_memory_write:
-                    try:
-                        memo.add(
-                            f"User: {user_input}\nAssistant: {res.content}",
-                            user_id=user_id,
-                        )
-                    except Exception as e:
-                        print(f"[!] 写入长期记忆失败: {e}")
-                elif skip_memory_write:
-                    print("[*] 本轮包含 reset 操作，跳过记忆回写。")
-            break
+    if result.final_reply:
+        print(f"\n[BugStar]: {result.final_reply}")
 
-        # 执行工具调用
-        for tool_call in res.tool_calls:
-            tool_name = tool_call["name"]
-            if tool_name in available_tools:
-                print(f"[*] 调用工具 [{tool_name}]: {tool_call['args']}")
-                try:
-                    observation = await available_tools[tool_name].ainvoke(tool_call["args"])
-                except Exception as e:
-                    observation = f"工具执行异常: {e}"
-                messages.append(ToolMessage(
-                    content=str(observation),
-                    tool_call_id=tool_call["id"],
-                ))
-            else:
-                messages.append(ToolMessage(
-                    content=f"错误：未找到工具 {tool_name}",
-                    tool_call_id=tool_call["id"],
-                ))
+        # F. 回写长期记忆（只在开启、未触发 reset、回复非空时）.
+        if MEMORY_ENABLED and memo is not None and not skip_memory_write:
+            try:
+                memo.add(
+                    f"User: {user_input}\nAssistant: {result.final_reply}",
+                    user_id=user_id,
+                )
+            except Exception as e:
+                print(f"[!] 写入长期记忆失败: {e}")
+        elif skip_memory_write:
+            print("[*] 本轮包含 reset 操作，跳过记忆回写。")
 
 
 async def main():

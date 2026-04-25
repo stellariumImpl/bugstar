@@ -12,6 +12,7 @@ dependencies = [
     "langchain-openai>=1.1.16",
     "mem0ai[nlp]>=2.0.0",
     "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
 ]
 
 [dependency-groups]
@@ -31,6 +32,10 @@ build-backend = "hatchling.build"
 [tool.ruff]
 line-length = 110
 target-version = "py311"
+extend-exclude = [
+    "tests/bench/fixtures",  # 故意错的文件不要 lint
+    "tests/bench/runs",      # 跑 bench 生成的 trace
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]

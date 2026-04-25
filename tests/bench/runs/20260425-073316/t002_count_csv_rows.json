@@ -1,0 +1,87 @@
+{
+  "task": {
+    "id": "t002_count_csv_rows",
+    "description": "读取 CSV 文件并报告数据行数（不含表头）",
+    "prompt": "当前目录下有一个 people.csv 文件，请告诉我它包含多少条数据记录（不包括表头）.\n",
+    "timeout_s": 60,
+    "fixtures": [
+      {
+        "from": "people.csv",
+        "to": "people.csv"
+      }
+    ],
+    "checks": [
+      {
+        "type": "tool_called",
+        "name": "terminal",
+        "min_times": 1
+      },
+      {
+        "type": "reply_contains",
+        "needle": "5"
+      }
+    ]
+  },
+  "agent": {
+    "final_reply": "`people.csv` 文件包含 4 条数据记录（不包括表头）。",
+    "total_duration_s": 4.920988707977813,
+    "stopped_reason": "ok",
+    "error": null,
+    "tool_calls": [
+      {
+        "name": "terminal",
+        "args": {
+          "command": "wc -l < people.csv"
+        },
+        "result": "exit_code=0 duration=0.01s\n--- stdout ---\n5",
+        "duration_s": 0.011104417033493519,
+        "call_id": "call_0WY8R2sbdqh8u3E6QYCLFLBh"
+      }
+    ],
+    "messages": [
+      {
+        "type": "SystemMessage",
+        "content": "你是 BugStar，一个运行在 macOS 上的专业工程助手。\n\n你可以根据需要使用 terminal 执行命令。\n\n【执行环境】\n- 所有 terminal 命令都在隔离的工作目录内运行: /Users/felix/.bugstar/workspaces/sb-3686249d\n- 工作目录之外的文件无法读写，请使用相对路径或指定此目录下的绝对路径\n- 单条命令超时 60 秒\n\n【已知上下文（长期记忆）】:\n（bench 模式，无长期记忆）\n"
+      },
+      {
+        "type": "HumanMessage",
+        "content": "当前目录下有一个 people.csv 文件，请告诉我它包含多少条数据记录（不包括表头）.\n"
+      },
+      {
+        "type": "AIMessage",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_0WY8R2sbdqh8u3E6QYCLFLBh",
+            "name": "terminal",
+            "args": {
+              "command": "wc -l < people.csv"
+            }
+          }
+        ]
+      },
+      {
+        "type": "ToolMessage",
+        "content": "exit_code=0 duration=0.01s\n--- stdout ---\n5",
+        "tool_call_id": "call_0WY8R2sbdqh8u3E6QYCLFLBh"
+      },
+      {
+        "type": "AIMessage",
+        "content": "`people.csv` 文件包含 4 条数据记录（不包括表头）。"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "passed": true,
+      "detail": "terminal called 1 times",
+      "check_type": "tool_called"
+    },
+    {
+      "passed": false,
+      "detail": "reply missing: ['5']. reply head: '`people.csv` 文件包含 4 条数据记录（不包括表头）。'",
+      "check_type": "reply_contains"
+    }
+  ],
+  "passed": false
+}

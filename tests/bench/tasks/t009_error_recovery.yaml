@@ -1,0 +1,14 @@
+id: t009_error_recovery
+description: 让 agent 安装一个它第一次调用可能会失败的 Python 操作（测试是否能看 exit_code 自我修正）
+prompt: |
+  在当前目录创建一个名为 data.json 的文件，内容是合法 JSON: {"count": 42}. 然后用 python 读取它并打印 count 的值.
+timeout_s: 90
+checks:
+  - type: file_exists
+    path: data.json
+  - type: shell
+    cmd: python3 -c "import json; d = json.load(open('data.json')); print(d['count'])"
+    expect_exit_code: 0
+    expect_stdout_contains: "42"
+  - type: reply_contains
+    needle: "42"

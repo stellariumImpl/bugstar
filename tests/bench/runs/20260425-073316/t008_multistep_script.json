@@ -1,0 +1,91 @@
+{
+  "task": {
+    "id": "t008_multistep_script",
+    "description": "多步任务 —— 写脚本 + 运行 + 把结果存进文件",
+    "prompt": "计算 1 到 100 的所有偶数之和，把结果写入 result.txt (只写数字，不加其他文字).\n",
+    "timeout_s": 90,
+    "checks": [
+      {
+        "type": "file_exists",
+        "path": "result.txt"
+      },
+      {
+        "type": "shell",
+        "cmd": "cat result.txt | tr -d '[:space:]' | grep -x 2550",
+        "expect_exit_code": 0
+      },
+      {
+        "type": "tool_called",
+        "name": "terminal",
+        "min_times": 1
+      }
+    ]
+  },
+  "agent": {
+    "final_reply": "已将 1 到 100 的所有偶数之和写入到 `result.txt` 文件中。",
+    "total_duration_s": 2.145130250020884,
+    "stopped_reason": "ok",
+    "error": null,
+    "tool_calls": [
+      {
+        "name": "terminal",
+        "args": {
+          "command": "echo $((100*101/2 - 50*51)) > result.txt"
+        },
+        "result": "exit_code=0 duration=0.01s",
+        "duration_s": 0.005929332983214408,
+        "call_id": "call_9QFEIlLKbLkNBGQb50tt5eKx"
+      }
+    ],
+    "messages": [
+      {
+        "type": "SystemMessage",
+        "content": "你是 BugStar，一个运行在 macOS 上的专业工程助手。\n\n你可以根据需要使用 terminal 执行命令。\n\n【执行环境】\n- 所有 terminal 命令都在隔离的工作目录内运行: /Users/felix/.bugstar/workspaces/sb-21992300\n- 工作目录之外的文件无法读写，请使用相对路径或指定此目录下的绝对路径\n- 单条命令超时 60 秒\n\n【已知上下文（长期记忆）】:\n（bench 模式，无长期记忆）\n"
+      },
+      {
+        "type": "HumanMessage",
+        "content": "计算 1 到 100 的所有偶数之和，把结果写入 result.txt (只写数字，不加其他文字).\n"
+      },
+      {
+        "type": "AIMessage",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_9QFEIlLKbLkNBGQb50tt5eKx",
+            "name": "terminal",
+            "args": {
+              "command": "echo $((100*101/2 - 50*51)) > result.txt"
+            }
+          }
+        ]
+      },
+      {
+        "type": "ToolMessage",
+        "content": "exit_code=0 duration=0.01s",
+        "tool_call_id": "call_9QFEIlLKbLkNBGQb50tt5eKx"
+      },
+      {
+        "type": "AIMessage",
+        "content": "已将 1 到 100 的所有偶数之和写入到 `result.txt` 文件中。"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "passed": true,
+      "detail": "result.txt exists",
+      "check_type": "file_exists"
+    },
+    {
+      "passed": false,
+      "detail": "exit_code=1 expected 0. stderr=''",
+      "check_type": "shell"
+    },
+    {
+      "passed": true,
+      "detail": "terminal called 1 times",
+      "check_type": "tool_called"
+    }
+  ],
+  "passed": false
+}

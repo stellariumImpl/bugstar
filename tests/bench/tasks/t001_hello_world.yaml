@@ -1,0 +1,20 @@
+id: t001_hello_world
+description: 最基本：写一个 Python 脚本并运行
+prompt: |
+  在当前目录写一个 hello.py，内容是打印 "Hello, BugStar!"，然后运行它把输出告诉我.
+timeout_s: 60
+checks:
+  - type: file_exists
+    path: hello.py
+  - type: file_contains
+    path: hello.py
+    contains: "Hello, BugStar!"
+  - type: shell
+    cmd: python3 hello.py
+    expect_exit_code: 0
+    expect_stdout_contains: "Hello, BugStar!"
+  - type: tool_called
+    name: terminal
+    min_times: 1
+  - type: reply_contains
+    needle: "Hello, BugStar!"
